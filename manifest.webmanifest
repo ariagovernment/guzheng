@@ -1,0 +1,16 @@
+{
+  "name": "古箏練習器",
+  "short_name": "古箏練習",
+  "description": "記憶古箏 21 弦位置、簡譜與唱名的練習工具",
+  "lang": "zh-Hant",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1c1714",
+  "theme_color": "#1c1714",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="古箏練習">
+  <meta name="theme-color" content="#1c1714">
+  <title>古箏練習器</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>古箏練習器</h1>
+    <span id="keyBadge" class="badge">D 調</span>
+    <button id="settingsBtn" class="icon-btn" aria-label="設定">⚙</button>
+  </header>
+
+  <section id="settings" class="settings" hidden>
+    <label>調性
+      <select id="setKey"></select>
+    </label>
+    <label>題目方式
+      <select id="setFormat">
+        <option value="jianpu">簡譜（低音 5）</option>
+        <option value="solfege">唱名（低音 Sol）</option>
+        <option value="mixed">混合（隨機）</option>
+      </select>
+    </label>
+    <label>弦上標示
+      <select id="setLabels">
+        <option value="jianpu">簡譜</option>
+        <option value="solfege">唱名</option>
+        <option value="both">簡譜 + 唱名</option>
+        <option value="none">不顯示</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" id="setLetter"> 顯示音名（D4、A3…）</label>
+    <label class="check"><input type="checkbox" id="setPress"> 標示按音位置（3→4、6→7）</label>
+    <p class="hint">沒有聲音的話，請確認 iPhone 側邊的靜音鍵已關閉，並調高音量。</p>
+  </section>
+
+  <main>
+    <section id="panel" class="panel"></section>
+    <section id="board" class="board" aria-label="古箏弦"></section>
+  </main>
+
+  <nav class="tabs">
+    <button data-mode="board" class="active">弦圖</button>
+    <button data-mode="find">找弦</button>
+    <button data-mode="recog">認音</button>
+    <button data-mode="card">唱名</button>
+    <button data-mode="scale">音階</button>
+    <button data-mode="stats">成績</button>
+  </nav>
+
+  <script src="guzheng.js"></script>
+  <script src="audio.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
