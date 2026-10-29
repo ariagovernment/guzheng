@@ -163,7 +163,8 @@
         resetSession();
         renderBoard('both');
         board.classList.add('hide-labels');
-        panel.innerHTML = '<div id="status" class="status"></div><div class="info">找出這個音在哪一條弦</div>'
+        // 提示文字和對錯回饋共用同一行，讓弦有更多空間
+        panel.innerHTML = '<div id="status" class="status"></div>'
           + '<div id="prompt" class="prompt"></div><div id="feedback" class="feedback"></div>';
         renderStatus();
         q.target = null;
@@ -177,7 +178,7 @@
         q.locked = false;
         const t = strings[q.target];
         $('#prompt').innerHTML = promptHTML(t.degree, t.octave, q.fmt);
-        feedback('', '');
+        feedback('hint', '找出這個音在哪一條弦，按住可滑動調整，放開才算');
       },
       tap(s) {
         if (q.locked) return;
@@ -204,11 +205,10 @@
         resetSession();
         renderBoard('both');
         board.classList.add('hide-labels');
-        panel.innerHTML = '<div id="status" class="status"></div>'
-          + '<div class="info">藍框的弦是什麼音？請選八度和音名</div>'
+        panel.innerHTML = '<div class="row"><div id="status" class="status" style="flex:1"></div>'
+          + '<button class="btn ghost small" data-act="replay">🔊 再聽</button></div>'
           + '<div id="octChoices" class="choices"></div><div id="degChoices" class="choices"></div>'
-          + '<div id="feedback" class="feedback"></div>'
-          + '<div class="row" style="justify-content:center"><button class="btn ghost" data-act="replay">🔊 再聽一次</button></div>';
+          + '<div id="feedback" class="feedback"></div>';
         renderStatus();
         q.target = null;
         this.next();
@@ -225,7 +225,7 @@
           `<button class="choice small" data-act="oct" data-val="${o}">${octName(o)}</button>`).join('');
         $('#degChoices').innerHTML = G.PENTA.map(d =>
           `<button class="choice" data-act="deg" data-val="${d}">${q.fmt === 'solfege' ? sol(d) : d}</button>`).join('');
-        feedback('', '');
+        feedback('hint', '藍框的弦是什麼音？請選八度和音名');
         Sound.play(strings[q.target].midi);
       },
       act(name, val, btn) {
@@ -428,11 +428,48 @@
   // ---------- 事件 ----------
   document.addEventListener('pointerdown', () => Sound.unlock(), { once: true });
 
-  board.addEventListener('pointerdown', e => {
-    const row = e.target.closest('.string');
+  // 觸控方式：
+  // - 弦圖模式：按下就發聲，手指滑過其他弦也會發聲（刮奏）
+  // - 測驗模式：按下只是預選（橘框），可滑動調整，放開手指才確定答案
+  const touch = { active: false, row: null };
+  const rowAt = e => {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    return el && board.contains(el) ? el.closest('.string') : null;
+  };
+  const setHover = row => {
+    if (touch.row) touch.row.classList.remove('hover');
+    touch.row = row;
+    if (row && mode !== 'board') row.classList.add('hover');
+  };
+  const tapRow = row => {
     const handler = modes[mode].tap;
     if (row && handler) handler.call(modes[mode], strings[+row.dataset.idx]);
+  };
+
+  board.addEventListener('pointerdown', e => {
+    if (!modes[mode].tap) return;
+    e.preventDefault();
+    touch.active = true;
+    setHover(rowAt(e));
+    if (mode === 'board') tapRow(touch.row);
   });
+  board.addEventListener('pointermove', e => {
+    if (!touch.active) return;
+    const row = rowAt(e);
+    if (row === touch.row) return;
+    setHover(row);
+    if (mode === 'board') tapRow(row);
+  });
+  const endTouch = commit => {
+    if (!touch.active) return;
+    touch.active = false;
+    const row = touch.row;
+    setHover(null);
+    if (commit && mode !== 'board') tapRow(row);
+  };
+  board.addEventListener('pointerup', () => endTouch(true));
+  board.addEventListener('pointercancel', () => endTouch(false));
+  board.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') endTouch(false); });
 
   panel.addEventListener('click', e => {
     const b = e.target.closest('[data-act]');
@@ -477,7 +514,9 @@
   });
 
   $('#keyBadge').textContent = G.keyInfo(settings.key).name;
-  switchMode('board');
+  // 網址加上 #find、#recog 等可直接開啟該模式
+  const startMode = location.hash.slice(1);
+  switchMode(modes[startMode] ? startMode : 'board');
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
