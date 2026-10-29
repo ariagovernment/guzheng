@@ -24,13 +24,12 @@ const Guzheng = (() => {
 
   const keyInfo = id => KEYS.find(k => k.id === id) || KEYS[0];
   const letter = midi => LETTERS[midi % 12] + (Math.floor(midi / 12) - 1);
-  // 不含八度的音名，升記號寫在前面（#F），和國內古箏教材的寫法一致
+  // 定弦：弦實際定的音，升記號寫在前面（#F），和國內古箏教材的寫法一致
   const NOTE_NAMES = ['C', '#C', 'D', '♭E', 'E', 'F', '#F', 'G', '#G', 'A', '♭B', 'B'];
-  // 首調：某調中某個簡譜音的音名，例如 D 調的 3 = #F
+  // 某調中某個簡譜音的定弦，例如 D 調的 3 = #F
   const noteName = (keyId, degree) => NOTE_NAMES[(keyInfo(keyId).pc + SEMITONES[degree]) % 12];
-  // 固定唱名：唱名跟著音名固定（C = Do、D = Re …），不隨調改變；例如 D 調的 1（D）唱 Re
-  const FIXED_SOLFEGE = ['Do', '#Do', 'Re', '♭Mi', 'Mi', 'Fa', '#Fa', 'Sol', '#Sol', 'La', '♭Si', 'Si'];
-  const solfege = (keyId, degree) => FIXED_SOLFEGE[(keyInfo(keyId).pc + SEMITONES[degree]) % 12];
+  // 音名：唱名對應的字母，Do = C、Re = D、Mi = E、Sol = G、La = A（不隨調改變）
+  const LETTER_OF = { 1: 'C', 2: 'D', 3: 'E', 4: 'F', 5: 'G', 6: 'A', 7: 'B' };
 
   function buildStrings(keyId) {
     const tonic = keyInfo(keyId).pc;
@@ -55,5 +54,5 @@ const Guzheng = (() => {
     return list;
   }
 
-  return { KEYS, PENTA, SEMITONES, SOLFEGE, OCTAVE_NAMES, PRESS, keyInfo, letter, noteName, solfege, buildStrings };
+  return { KEYS, PENTA, SEMITONES, SOLFEGE, OCTAVE_NAMES, PRESS, keyInfo, letter, noteName, LETTER_OF, buildStrings };
 })();

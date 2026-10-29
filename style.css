@@ -310,3 +310,11 @@ main {
 .tune-table b { color: #8fd0ff; }
 .string .label .nn { font-size: 0.85em; color: #8fd0ff; min-width: 1.8em; text-align: left; }
 .tune-table th small { display: block; font-size: 10px; line-height: 1.1; color: var(--muted); opacity: 0.8; }
+
+/* ---------- 調音小知識（可展開） ---------- */
+.tips { background: var(--wood); border-radius: 10px; padding: 6px 10px; font-size: 13px; }
+.tips summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.tips-body { max-height: 34vh; overflow-y: auto; }
+.tips ul { margin: 6px 0 2px; padding-left: 18px; }
+.tips li { margin: 4px 0; color: var(--text); line-height: 1.5; }
+.tips b { color: #8fd0ff; }

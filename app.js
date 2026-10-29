@@ -33,11 +33,10 @@
 
   // ---------- 記法 ----------
   const octName = o => G.OCTAVE_NAMES[o];
-  // 唱名有兩種用法：
-  // - sol：簡譜用首調，1 = Do（D 調的 5 = Sol）
-  // - fixedSol：和音名對照時用固定唱名，C = Do（D 調的 A = La）
+  // 簡譜、唱名、音名一一對應：1 = Do = C、2 = Re = D、3 = Mi = E、5 = Sol = G、6 = La = A
+  // 定弦（弦實際定的音）另外用 G.noteName 依調計算，例如 D 調 1 定 D
   const sol = d => G.SOLFEGE[d];
-  const fixedSol = d => G.solfege(settings.key, d);
+  const letterName = d => G.LETTER_OF[d];
   const fullName = (degree, octave) => `${octName(octave)} ${degree}（${sol(degree)}）`;
 
   // 文字加上高低音點（上方點 = 高八度，下方點 = 低八度）
@@ -148,9 +147,7 @@
     board: {
       enter() {
         const k = G.keyInfo(settings.key);
-        const tonic = strings.find(s => s.degree === 1);
-        panel.innerHTML = `<div class="info">${k.name}：1（Do）= <b>${G.noteName(settings.key, 1)}</b>　點弦可以聽音<br>`
-          + `3 弦按小二度得 <b>4 Fa</b>，6 弦按大二度得 <b>7 Si</b></div>`
+        panel.innerHTML = `<div class="info">${k.name}：1（Do）的定弦 = <b>${G.noteName(settings.key, 1)}</b>　點弦可以聽音</div>`
           + `<div id="tapInfo" class="prompt"></div>`;
         renderBoard();
       },
@@ -230,7 +227,7 @@
           `<button class="choice small" data-act="oct" data-val="${o}">${octName(o)}</button>`).join('');
         $('#degChoices').innerHTML = G.PENTA.map(d =>
           `<button class="choice" data-act="deg" data-val="${d}">${q.fmt === 'solfege' ? sol(d) : d}</button>`).join('');
-        feedback('hint', '藍框的弦是什麼音？請選八度和音名');
+        feedback('hint', '藍框的弦是什麼音？請選八度和音');
         Sound.play(strings[q.target].midi);
       },
       act(name, val, btn) {
@@ -259,7 +256,7 @@
       },
     },
 
-    // 唱名練習：簡譜↔唱名、唱名↔音名（音名跟著目前的調，例如 D 調 Sol = A）
+    // 唱名練習：簡譜↔唱名、唱名↔音名（Do = C、Re = D、Mi = E、Sol = G、La = A）
     card: {
       enter() {
         resetSession();
@@ -274,8 +271,8 @@
         q.item = null;
         this.next();
       },
-      // 成績分開記：簡譜↔唱名與調無關，唱名↔音名依調分開
-      bucketKey() { return settings.cardType === 'letter' ? [settings.key, 'letter'] : ['-', 'card']; },
+      // 兩種練習都和調無關
+      bucketKey() { return ['-', settings.cardType === 'letter' ? 'letter' : 'card']; },
       next() {
         const letterMode = settings.cardType === 'letter';
         const items = [];
@@ -291,12 +288,12 @@
         const hints = {
           n2s: '這個簡譜數字的唱名是？（1 = Do）',
           s2n: '這個唱名的簡譜數字是？（1 = Do）',
-          s2l: `固定唱名（C = Do）：這個唱名的音名是？`,
-          l2s: `固定唱名（C = Do）：這個音名的唱名是？`,
+          s2l: '這個唱名的音名是？',
+          l2s: '這個音名的唱名是？',
         };
         const promptText = { n2s: `<span class="jp">${q.deg}</span>`, s2n: `<span class="sol">${sol(q.deg)}</span>`,
-          s2l: `<span class="sol">${fixedSol(q.deg)}</span>`, l2s: `<span class="jp">${name(q.deg)}</span>` };
-        const choiceText = { n2s: sol, s2n: n => n, s2l: name, l2s: fixedSol };
+          s2l: `<span class="sol">${sol(q.deg)}</span>`, l2s: `<span class="jp">${letterName(q.deg)}</span>` };
+        const choiceText = { n2s: sol, s2n: n => n, s2l: letterName, l2s: sol };
         $('#cardHint').textContent = hints[dir];
         $('#prompt').innerHTML = promptText[dir];
         $('#cardChoices').innerHTML = G.PENTA.map(n =>
@@ -321,7 +318,7 @@
         const tonic = strings.find(s => s.degree === 1 && s.octave === 0);
         Sound.play(tonic.midi + G.SEMITONES[q.deg]);
         feedback(ok ? 'ok' : 'bad', settings.cardType === 'letter'
-          ? `${fixedSol(q.deg)} = ${G.noteName(settings.key, q.deg)}（固定唱名，C = Do）`
+          ? `${sol(q.deg)} = ${letterName(q.deg)}（簡譜 ${q.deg}）`
           : `${q.deg} = ${sol(q.deg)}`);
         later(() => this.next(), ok ? 700 : 1600);
       },
@@ -422,17 +419,43 @@
         const low = strings[0], high = strings[20];
         const green = strings.find(s => s.green);
         return `<table class="tune-table"><tr><th>簡譜</th>${cells((d, o) => markHTML(d, o))}</tr>`
-          + `<tr><th>唱名<small>1=Do</small></th>${cells(d => sol(d))}</tr>`
-          + `<tr><th>唱名<small>C=Do</small></th>${cells(d => fixedSol(d))}</tr>`
-          + `<tr><th>音名</th>${cells(d => `<b>${name(d)}</b>`)}</tr></table>`
-          + `<div class="info">${k.name} 1 = ${name(1)}，每 5 弦一組（由低到高如上表）<br>`
-          + `第 21 弦 ${G.letter(low.midi)} 最低 · 第 1 弦 ${G.letter(high.midi)} 最高 · 綠弦 = ${green.degree}（${name(green.degree)}）</div>`;
+          + `<tr><th>唱名</th>${cells(d => sol(d))}</tr>`
+          + `<tr><th>音名</th>${cells(d => letterName(d))}</tr>`
+          + `<tr><th>定弦</th>${cells(d => `<b>${name(d)}</b>`)}</tr></table>`
+          + `<div class="info">${k.name} 1 = ${name(1)}，每 5 弦一組，定弦由低到高如上表<br>`
+          + `第 21 弦 ${G.letter(low.midi)} 最低 · 第 1 弦 ${G.letter(high.midi)} 最高 · 綠弦 = ${green.degree}（${name(green.degree)}）</div>`
+          + this.tipsHTML();
+      },
+      // 調音小知識（可展開）：內容依目前的調計算
+      tipsHTML() {
+        const name = d => G.noteName(settings.key, d);
+        const hz = midi => Math.round(440 * Math.pow(2, (midi - 69) / 12));
+        const byNum = n => strings.find(s => s.num === n);
+        // 由第 1 弦往下（高→低）一組五條弦
+        const topFive = [1, 2, 3, 4, 5].map(n => name(byNum(n).degree)).join(' ');
+        const greens = strings.filter(s => s.green).sort((a, b) => a.num - b.num);
+        const greenNote = name(greens[0].degree);
+        const a440 = strings.find(s => s.midi === 69);
+        const greenList = greens.map(s => `第 ${s.num} 弦 ${G.letter(s.midi)} = ${hz(s.midi)} Hz`).join('、');
+        // 調音器範例：第 1 弦應有的音，以及低半音、低全音、高半音時調音器會顯示什麼
+        const NAMES = ['C', '#C', 'D', '♭E', 'E', 'F', '#F', 'G', '#G', 'A', '♭B', 'B'];
+        const s1 = byNum(1);
+        const at = d => NAMES[(s1.midi + d + 120) % 12];
+        return '<details class="tips"><summary>調音小知識（調音器怎麼看）</summary><div class="tips-body"><ul>'
+          + `<li><b>音階排列</b>：從第 1 弦往下是 <b>${topFive}</b>，之後每 5 條弦重複</li>`
+          + `<li><b>綠弦</b>（第 ${greens.map(s => s.num).join('、')} 弦）都定在 <b>${greenNote}</b>${greenNote === 'A' ? '，也就是鋼琴上的 La' : ''}。`
+          + (a440 ? `標準音 A4 = 440 Hz（有些用 442），在第 ${a440.num} 弦。` : '這個調沒有剛好定在 A4（440 Hz）的弦。')
+          + `各條綠弦八度不同：${greenList}</li>`
+          + '<li><b>調音器</b>（如 KORG，十二平均律）依序顯示：C、#C、D、♭E、E、F、#F、G、#G、A、♭B、B，相鄰兩個相差半音；調音器不分八度</li>'
+          + `<li><b>例</b>：第 1 弦應調出 <b>${at(0)}</b>。若顯示 <b>${at(-2)}</b> 表示低了全音，顯示 <b>${at(-1)}</b> 表示低了半音，都要調高；`
+          + `顯示 <b>${at(1)}</b> 表示高了半音，要調低</li>`
+          + '</ul></div></details>';
       },
       tap(s) {
         if (settings.tuneView === 'quiz') return;
         Sound.play(s.midi);
         flash(s.idx);
-        $('#tapInfo').innerHTML = `第 <b>${s.num}</b> 弦 · ${fullName(s.degree, s.octave)} · 音名 <b>${G.noteName(settings.key, s.degree)}</b>（${G.letter(s.midi)}）`;
+        $('#tapInfo').innerHTML = `第 <b>${s.num}</b> 弦 · ${fullName(s.degree, s.octave)} · 定弦 <b>${G.noteName(settings.key, s.degree)}</b>（${G.letter(s.midi)}）`;
       },
       next() {
         const items = [];
@@ -447,7 +470,7 @@
         q.deg = q.str ? q.str.degree : +v;
         q.locked = false;
         q.start = performance.now();
-        const hint = { n2l: '這個簡譜音定什麼音名？', l2n: '這個音名是簡譜幾？', str: '這條弦定什麼音名？' }[type];
+        const hint = { n2l: '這個簡譜音的定弦是？', l2n: '這個定弦是簡譜幾？', str: '這條弦的定弦是？' }[type];
         $('#tuneHint').textContent = `${k.name}（1 = ${name(1)}）：${hint}`;
         $('#prompt').innerHTML = type === 'n2l' ? `<span class="jp">${q.deg}</span>`
           : type === 'l2n' ? `<span class="jp">${name(q.deg)}</span>`
@@ -474,11 +497,11 @@
         const n = G.noteName(settings.key, q.deg);
         if (q.str) {
           Sound.play(q.str.midi);
-          feedback(ok ? 'ok' : 'bad', `第 ${q.str.num} 弦 = ${fullName(q.deg, q.str.octave)} = ${n}`);
+          feedback(ok ? 'ok' : 'bad', `第 ${q.str.num} 弦 = ${fullName(q.deg, q.str.octave)}，定弦 ${n}`);
         } else {
           const tonic = strings.find(s => s.degree === 1 && s.octave === 0);
           Sound.play(tonic.midi + G.SEMITONES[q.deg]);
-          feedback(ok ? 'ok' : 'bad', `${q.deg}（${sol(q.deg)}）= ${n}`);
+          feedback(ok ? 'ok' : 'bad', `${q.deg}（${sol(q.deg)}）定弦 = ${n}`);
         }
         later(() => this.next(), ok ? 800 : 1800);
       },
@@ -513,26 +536,25 @@
           return `<li>${d} ↔ ${sol(d)}：數字→唱名 ${f(a)}，唱名→數字 ${f(b)}</li>`;
         }).join('');
 
-        // 唱名↔音名、定音考試（依目前的調）
+        // 唱名↔音名（與調無關）、定音考試（依目前的調）
         const fr = r => r && r.n ? `${r.ok}/${r.n}` : '—';
-        const nn = d => G.noteName(settings.key, d);
-        const lt = bucket('card', settings.key, 'letter');
+        const lt = bucket('card', '-', 'letter');
         const letterRows = G.PENTA.map(d =>
-          `<li>${fixedSol(d)} ↔ ${nn(d)}：唱名→音名 ${fr(lt['s2l:' + d])}，音名→唱名 ${fr(lt['l2s:' + d])}</li>`).join('');
+          `<li>${sol(d)} ↔ ${letterName(d)}：唱名→音名 ${fr(lt['s2l:' + d])}，音名→唱名 ${fr(lt['l2s:' + d])}</li>`).join('');
         const tb = bucket('tune', settings.key, 'tune');
         const sum = prefix => Object.keys(tb).filter(i => i.startsWith(prefix))
           .reduce((a, i) => ({ n: a.n + tb[i].n, ok: a.ok + tb[i].ok }), { n: 0, ok: 0 });
         const tuneHeat = strings.map(s => `<div style="background:${accColor(tb['str:' + s.idx])}">${s.num}</div>`).join('');
         const tuneHTML = `<h2>定音考試</h2><ul class="weak">`
-          + `<li>簡譜→音名 ${fr(sum('n2l:'))}，音名→簡譜 ${fr(sum('l2n:'))}，弦號→音名 ${fr(sum('str:'))}</li></ul>`
-          + `<h3>弦號→音名（每格一條弦）</h3><div class="heat">${tuneHeat}</div>`;
+          + `<li>簡譜→定弦 ${fr(sum('n2l:'))}，定弦→簡譜 ${fr(sum('l2n:'))}，弦號→定弦 ${fr(sum('str:'))}</li></ul>`
+          + `<h3>弦號→定弦（每格一條弦）</h3><div class="heat">${tuneHeat}</div>`;
 
         panel.innerHTML = `<h2>${k.name}</h2>`
           + '<p class="legend">每格代表一條弦，左邊是第 21 弦（最低音），右邊是第 1 弦（最高音）。綠色表示答得好，紅色表示常答錯，灰色表示還沒練過。</p>'
           + section('find', '找弦') + section('recog', '認音')
           + tuneHTML
           + `<h2>簡譜 ↔ 唱名</h2><ul class="weak">${cardRows}</ul>`
-          + `<h2>唱名 ↔ 音名（${k.name}）</h2><ul class="weak">${letterRows}</ul>`
+          + `<h2>唱名 ↔ 音名</h2><ul class="weak">${letterRows}</ul>`
           + '<div class="row"><button class="btn danger" data-act="reset">清除全部成績</button></div>';
       },
       act(name, val, btn) {
