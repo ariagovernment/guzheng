@@ -262,7 +262,7 @@ main {
 /* ---------- 底部分頁 ---------- */
 .tabs {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   background: var(--panel);
   border-top: 1px solid #00000055;
   padding-bottom: var(--safe-bottom);
@@ -297,3 +297,15 @@ main {
   .tabs button { padding: 9px 0; }
   .board { margin-bottom: 6px; }
 }
+
+/* ---------- 分段切換鈕（唱名、定音） ---------- */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--wood); border-radius: 10px; padding: 3px; gap: 3px; }
+.seg-btn { background: none; border: 0; border-radius: 8px; padding: 6px 0; font-size: 14px; color: var(--muted); cursor: pointer; }
+.seg-btn.sel { background: var(--accent); color: #241a10; font-weight: 700; }
+
+/* ---------- 定音知識 ---------- */
+.tune-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 16px; }
+.tune-table th { font-size: 12px; color: var(--muted); font-weight: 400; width: 3.2em; text-align: left; }
+.tune-table td { padding: 2px 0; border-bottom: 1px solid #ffffff12; }
+.tune-table b { color: #8fd0ff; }
+.string .label .nn { font-size: 0.85em; color: #8fd0ff; min-width: 1.8em; text-align: left; }

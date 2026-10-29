@@ -24,6 +24,10 @@ const Guzheng = (() => {
 
   const keyInfo = id => KEYS.find(k => k.id === id) || KEYS[0];
   const letter = midi => LETTERS[midi % 12] + (Math.floor(midi / 12) - 1);
+  // 不含八度的音名，升記號寫在前面（#F），和國內古箏教材的寫法一致
+  const NOTE_NAMES = ['C', '#C', 'D', '♭E', 'E', 'F', '#F', 'G', '#G', 'A', '♭B', 'B'];
+  // 首調：某調中某個簡譜音的音名，例如 D 調的 3 = #F
+  const noteName = (keyId, degree) => NOTE_NAMES[(keyInfo(keyId).pc + SEMITONES[degree]) % 12];
 
   function buildStrings(keyId) {
     const tonic = keyInfo(keyId).pc;
@@ -48,5 +52,5 @@ const Guzheng = (() => {
     return list;
   }
 
-  return { KEYS, PENTA, SEMITONES, SOLFEGE, OCTAVE_NAMES, PRESS, keyInfo, letter, buildStrings };
+  return { KEYS, PENTA, SEMITONES, SOLFEGE, OCTAVE_NAMES, PRESS, keyInfo, letter, noteName, buildStrings };
 })();

@@ -59,6 +59,7 @@
     const press = G.PRESS[s.degree];
     if (settings.press && press) parts.push(`<span class="press">按→${press.degree}</span>`);
     if (settings.letter) parts.push(`<span class="letter">${G.letter(s.midi)}</span>`);
+    if (labels === 'tune') return markHTML(s.degree, s.octave) + `<span class="nn">${G.noteName(settings.key, s.degree)}</span>`;
     if (labels === 'jianpu' || labels === 'both') parts.push(markHTML(s.degree, s.octave));
     if (labels === 'solfege') parts.push(markHTML(sol(s.degree), s.octave, 'sol'));
     if (labels === 'both') parts.push(`<span class="sol">${sol(s.degree)}</span>`);
@@ -254,45 +255,70 @@
       },
     },
 
+    // 唱名練習：簡譜↔唱名、唱名↔音名（音名跟著目前的調，例如 D 調 Sol = A）
     card: {
       enter() {
         resetSession();
-        panel.innerHTML = '<div id="status" class="status"></div>'
+        const t = settings.cardType || 'num';
+        panel.innerHTML = '<div class="seg">'
+          + `<button class="seg-btn${t === 'num' ? ' sel' : ''}" data-act="type" data-val="num">簡譜 ↔ 唱名</button>`
+          + `<button class="seg-btn${t === 'letter' ? ' sel' : ''}" data-act="type" data-val="letter">唱名 ↔ 音名</button>`
+          + '</div><div id="status" class="status"></div>'
           + '<div class="info" id="cardHint"></div><div id="prompt" class="prompt big"></div>'
           + '<div id="cardChoices" class="choices"></div><div id="feedback" class="feedback"></div>';
         renderStatus();
         q.item = null;
         this.next();
       },
+      // 成績分開記：簡譜↔唱名與調無關，唱名↔音名依調分開
+      bucketKey() { return settings.cardType === 'letter' ? [settings.key, 'letter'] : ['-', 'card']; },
       next() {
+        const letterMode = settings.cardType === 'letter';
         const items = [];
-        G.PENTA.forEach(d => items.push('n2s:' + d, 's2n:' + d));
-        q.item = pickWeighted('card', '-', 'card', items, q.item);
+        G.PENTA.forEach(d => letterMode ? items.push('s2l:' + d, 'l2s:' + d) : items.push('n2s:' + d, 's2n:' + d));
+        q.item = pickWeighted('card', ...this.bucketKey(), items, q.item);
         const [dir, d] = q.item.split(':');
         q.dir = dir;
         q.deg = +d;
         q.locked = false;
         q.start = performance.now();
-        $('#cardHint').textContent = dir === 'n2s' ? '這個簡譜數字的唱名是？' : '這個唱名的簡譜數字是？';
-        $('#prompt').innerHTML = dir === 'n2s'
-          ? `<span class="jp">${q.deg}</span>`
-          : `<span class="sol">${sol(q.deg)}</span>`;
+        const k = G.keyInfo(settings.key);
+        const name = n => G.noteName(settings.key, n);
+        const hints = {
+          n2s: '這個簡譜數字的唱名是？',
+          s2n: '這個唱名的簡譜數字是？',
+          s2l: `${k.name}（1 = ${name(1)}）：這個唱名的音名是？`,
+          l2s: `${k.name}（1 = ${name(1)}）：這個音名的唱名是？`,
+        };
+        const promptText = { n2s: `<span class="jp">${q.deg}</span>`, s2n: `<span class="sol">${sol(q.deg)}</span>`,
+          s2l: `<span class="sol">${sol(q.deg)}</span>`, l2s: `<span class="jp">${name(q.deg)}</span>` };
+        const choiceText = { n2s: sol, s2n: n => n, s2l: name, l2s: sol };
+        $('#cardHint').textContent = hints[dir];
+        $('#prompt').innerHTML = promptText[dir];
         $('#cardChoices').innerHTML = G.PENTA.map(n =>
-          `<button class="choice${dir === 'n2s' ? ' small' : ''}" data-act="ans" data-val="${n}">${dir === 'n2s' ? sol(n) : n}</button>`).join('');
+          `<button class="choice${dir === 'n2s' || dir === 'l2s' ? ' small' : ''}" data-act="ans" data-val="${n}">${choiceText[dir](n)}</button>`).join('');
         feedback('', '');
       },
       act(name, val, btn) {
+        if (name === 'type') {
+          settings.cardType = val;
+          saveSettings();
+          this.enter();
+          return;
+        }
         if (q.locked) return;
         q.locked = true;
         const ok = +val === q.deg;
-        record('card', '-', 'card', q.item, ok, performance.now() - q.start);
+        record('card', ...this.bucketKey(), q.item, ok, performance.now() - q.start);
         score(ok);
         btn.classList.add(ok ? 'ok' : 'bad');
         if (!ok) panel.querySelector(`[data-act="ans"][data-val="${q.deg}"]`).classList.add('ok');
         // 播放中音區的這個音
         const tonic = strings.find(s => s.degree === 1 && s.octave === 0);
         Sound.play(tonic.midi + G.SEMITONES[q.deg]);
-        feedback(ok ? 'ok' : 'bad', `${q.deg} = ${sol(q.deg)}`);
+        feedback(ok ? 'ok' : 'bad', settings.cardType === 'letter'
+          ? `${sol(q.deg)} = ${G.noteName(settings.key, q.deg)}（簡譜 ${q.deg}）`
+          : `${q.deg} = ${sol(q.deg)}`);
         later(() => this.next(), ok ? 700 : 1600);
       },
     },
@@ -362,6 +388,97 @@
       },
     },
 
+    // 定音：知識（弦圖 + 對照表）與考試
+    tune: {
+      enter() {
+        resetSession();
+        const v = settings.tuneView || 'learn';
+        const head = '<div class="seg">'
+          + `<button class="seg-btn${v === 'learn' ? ' sel' : ''}" data-act="view" data-val="learn">定音知識</button>`
+          + `<button class="seg-btn${v === 'quiz' ? ' sel' : ''}" data-act="view" data-val="quiz">定音考試</button></div>`;
+        board.hidden = v === 'quiz';
+        if (v === 'learn') {
+          panel.innerHTML = head + this.learnHTML() + '<div id="tapInfo" class="info"></div>';
+          renderBoard('tune');
+        } else {
+          panel.innerHTML = head + '<div id="status" class="status"></div>'
+            + '<div class="info" id="tuneHint"></div><div id="prompt" class="prompt big"></div>'
+            + '<div id="tuneChoices" class="choices"></div><div id="feedback" class="feedback"></div>';
+          renderStatus();
+          q.item = null;
+          this.next();
+        }
+      },
+      learnHTML() {
+        const k = G.keyInfo(settings.key);
+        const name = d => G.noteName(settings.key, d);
+        // 一組五條弦由高到低：5 3 2 1 6（低音）
+        const order = [[5, 0], [3, 0], [2, 0], [1, 0], [6, -1]];
+        const cells = f => order.map(([d, o]) => `<td>${f(d, o)}</td>`).join('');
+        const low = strings[0], high = strings[20];
+        const green = strings.find(s => s.green);
+        return `<table class="tune-table"><tr><th>簡譜</th>${cells((d, o) => markHTML(d, o))}</tr>`
+          + `<tr><th>唱名</th>${cells(d => sol(d))}</tr>`
+          + `<tr><th>音名</th>${cells(d => `<b>${name(d)}</b>`)}</tr></table>`
+          + `<div class="info">${k.name} 1 = ${name(1)}，每 5 弦一組（由高到低如上表）<br>`
+          + `第 21 弦 ${G.letter(low.midi)} 最低 · 第 1 弦 ${G.letter(high.midi)} 最高 · 綠弦 = ${green.degree}（${name(green.degree)}）</div>`;
+      },
+      tap(s) {
+        if (settings.tuneView === 'quiz') return;
+        Sound.play(s.midi);
+        flash(s.idx);
+        $('#tapInfo').innerHTML = `第 <b>${s.num}</b> 弦 · ${fullName(s.degree, s.octave)} · 音名 <b>${G.noteName(settings.key, s.degree)}</b>（${G.letter(s.midi)}）`;
+      },
+      next() {
+        const items = [];
+        G.PENTA.forEach(d => items.push('n2l:' + d, 'l2n:' + d));
+        strings.forEach(s => items.push('str:' + s.idx));
+        q.item = pickWeighted('tune', settings.key, 'tune', items, q.item);
+        const [type, v] = q.item.split(':');
+        const name = d => G.noteName(settings.key, d);
+        const k = G.keyInfo(settings.key);
+        q.type = type;
+        q.str = type === 'str' ? strings[+v] : null;
+        q.deg = q.str ? q.str.degree : +v;
+        q.locked = false;
+        q.start = performance.now();
+        const hint = { n2l: '這個簡譜音定什麼音名？', l2n: '這個音名是簡譜幾？', str: '這條弦定什麼音名？' }[type];
+        $('#tuneHint').textContent = `${k.name}（1 = ${name(1)}）：${hint}`;
+        $('#prompt').innerHTML = type === 'n2l' ? `<span class="jp">${q.deg}</span>`
+          : type === 'l2n' ? `<span class="jp">${name(q.deg)}</span>`
+          : `<span class="oct">第</span><span class="jp">${q.str.num}</span><span class="oct">弦</span>`;
+        $('#tuneChoices').innerHTML = G.PENTA.map(n =>
+          `<button class="choice" data-act="ans" data-val="${n}">${type === 'l2n' ? n : name(n)}</button>`).join('');
+        feedback('', '');
+      },
+      act(name, val, btn) {
+        if (name === 'view') {
+          settings.tuneView = val;
+          saveSettings();
+          clearTimers();
+          this.enter();
+          return;
+        }
+        if (name !== 'ans' || q.locked) return;
+        q.locked = true;
+        const ok = +val === q.deg;
+        record('tune', settings.key, 'tune', q.item, ok, performance.now() - q.start);
+        score(ok);
+        btn.classList.add(ok ? 'ok' : 'bad');
+        if (!ok) panel.querySelector(`[data-act="ans"][data-val="${q.deg}"]`).classList.add('ok');
+        const n = G.noteName(settings.key, q.deg);
+        if (q.str) {
+          Sound.play(q.str.midi);
+          feedback(ok ? 'ok' : 'bad', `第 ${q.str.num} 弦 = ${fullName(q.deg, q.str.octave)} = ${n}`);
+        } else {
+          const tonic = strings.find(s => s.degree === 1 && s.octave === 0);
+          Sound.play(tonic.midi + G.SEMITONES[q.deg]);
+          feedback(ok ? 'ok' : 'bad', `${q.deg}（${sol(q.deg)}）= ${n}`);
+        }
+        later(() => this.next(), ok ? 800 : 1800);
+      },
+    },
+
     stats: {
       enter() {
         q.confirmReset = false;
@@ -391,10 +508,26 @@
           return `<li>${d} ↔ ${sol(d)}：數字→唱名 ${f(a)}，唱名→數字 ${f(b)}</li>`;
         }).join('');
 
+        // 唱名↔音名、定音考試（依目前的調）
+        const fr = r => r && r.n ? `${r.ok}/${r.n}` : '—';
+        const nn = d => G.noteName(settings.key, d);
+        const lt = bucket('card', settings.key, 'letter');
+        const letterRows = G.PENTA.map(d =>
+          `<li>${sol(d)} ↔ ${nn(d)}：唱名→音名 ${fr(lt['s2l:' + d])}，音名→唱名 ${fr(lt['l2s:' + d])}</li>`).join('');
+        const tb = bucket('tune', settings.key, 'tune');
+        const sum = prefix => Object.keys(tb).filter(i => i.startsWith(prefix))
+          .reduce((a, i) => ({ n: a.n + tb[i].n, ok: a.ok + tb[i].ok }), { n: 0, ok: 0 });
+        const tuneHeat = strings.map(s => `<div style="background:${accColor(tb['str:' + s.idx])}">${s.num}</div>`).join('');
+        const tuneHTML = `<h2>定音考試</h2><ul class="weak">`
+          + `<li>簡譜→音名 ${fr(sum('n2l:'))}，音名→簡譜 ${fr(sum('l2n:'))}，弦號→音名 ${fr(sum('str:'))}</li></ul>`
+          + `<h3>弦號→音名（每格一條弦）</h3><div class="heat">${tuneHeat}</div>`;
+
         panel.innerHTML = `<h2>${k.name}</h2>`
           + '<p class="legend">每格代表一條弦，左邊是第 21 弦（最低音），右邊是第 1 弦（最高音）。綠色表示答得好，紅色表示常答錯，灰色表示還沒練過。</p>'
           + section('find', '找弦') + section('recog', '認音')
-          + `<h2>唱名對應</h2><ul class="weak">${cardRows}</ul>`
+          + tuneHTML
+          + `<h2>簡譜 ↔ 唱名</h2><ul class="weak">${cardRows}</ul>`
+          + `<h2>唱名 ↔ 音名（${k.name}）</h2><ul class="weak">${letterRows}</ul>`
           + '<div class="row"><button class="btn danger" data-act="reset">清除全部成績</button></div>';
       },
       act(name, val, btn) {
@@ -432,6 +565,8 @@
   // - 弦圖模式：按下就發聲，手指滑過其他弦也會發聲（刮奏）
   // - 測驗模式：按下只是預選（橘框），可滑動調整，放開手指才確定答案
   const touch = { active: false, row: null };
+  // 弦圖、定音知識：按下就發聲；測驗：放開才作答
+  const instant = () => mode === 'board' || (mode === 'tune' && settings.tuneView !== 'quiz');
   const rowAt = e => {
     const el = document.elementFromPoint(e.clientX, e.clientY);
     return el && board.contains(el) ? el.closest('.string') : null;
@@ -439,7 +574,7 @@
   const setHover = row => {
     if (touch.row) touch.row.classList.remove('hover');
     touch.row = row;
-    if (row && mode !== 'board') row.classList.add('hover');
+    if (row && !instant()) row.classList.add('hover');
   };
   const tapRow = row => {
     const handler = modes[mode].tap;
@@ -451,21 +586,21 @@
     e.preventDefault();
     touch.active = true;
     setHover(rowAt(e));
-    if (mode === 'board') tapRow(touch.row);
+    if (instant()) tapRow(touch.row);
   });
   board.addEventListener('pointermove', e => {
     if (!touch.active) return;
     const row = rowAt(e);
     if (row === touch.row) return;
     setHover(row);
-    if (mode === 'board') tapRow(row);
+    if (instant()) tapRow(row);
   });
   const endTouch = commit => {
     if (!touch.active) return;
     touch.active = false;
     const row = touch.row;
     setHover(null);
-    if (commit && mode !== 'board') tapRow(row);
+    if (commit && !instant()) tapRow(row);
   };
   board.addEventListener('pointerup', () => endTouch(true));
   board.addEventListener('pointercancel', () => endTouch(false));
