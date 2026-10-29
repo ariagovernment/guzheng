@@ -33,7 +33,11 @@
 
   // ---------- 記法 ----------
   const octName = o => G.OCTAVE_NAMES[o];
+  // 唱名有兩種用法：
+  // - sol：簡譜用首調，1 = Do（D 調的 5 = Sol）
+  // - fixedSol：和音名對照時用固定唱名，C = Do（D 調的 A = La）
   const sol = d => G.SOLFEGE[d];
+  const fixedSol = d => G.solfege(settings.key, d);
   const fullName = (degree, octave) => `${octName(octave)} ${degree}（${sol(degree)}）`;
 
   // 文字加上高低音點（上方點 = 高八度，下方點 = 低八度）
@@ -145,7 +149,7 @@
       enter() {
         const k = G.keyInfo(settings.key);
         const tonic = strings.find(s => s.degree === 1);
-        panel.innerHTML = `<div class="info">${k.name}：1（Do）= <b>${G.letter(tonic.midi).replace(/\d+$/, '')}</b>　點弦可以聽音<br>`
+        panel.innerHTML = `<div class="info">${k.name}：1（Do）= <b>${G.noteName(settings.key, 1)}</b>　點弦可以聽音<br>`
           + `3 弦按小二度得 <b>4 Fa</b>，6 弦按大二度得 <b>7 Si</b></div>`
           + `<div id="tapInfo" class="prompt"></div>`;
         renderBoard();
@@ -285,14 +289,14 @@
         const k = G.keyInfo(settings.key);
         const name = n => G.noteName(settings.key, n);
         const hints = {
-          n2s: '這個簡譜數字的唱名是？',
-          s2n: '這個唱名的簡譜數字是？',
-          s2l: `${k.name}（1 = ${name(1)}）：這個唱名的音名是？`,
-          l2s: `${k.name}（1 = ${name(1)}）：這個音名的唱名是？`,
+          n2s: '這個簡譜數字的唱名是？（1 = Do）',
+          s2n: '這個唱名的簡譜數字是？（1 = Do）',
+          s2l: `固定唱名（C = Do）：這個唱名的音名是？`,
+          l2s: `固定唱名（C = Do）：這個音名的唱名是？`,
         };
         const promptText = { n2s: `<span class="jp">${q.deg}</span>`, s2n: `<span class="sol">${sol(q.deg)}</span>`,
-          s2l: `<span class="sol">${sol(q.deg)}</span>`, l2s: `<span class="jp">${name(q.deg)}</span>` };
-        const choiceText = { n2s: sol, s2n: n => n, s2l: name, l2s: sol };
+          s2l: `<span class="sol">${fixedSol(q.deg)}</span>`, l2s: `<span class="jp">${name(q.deg)}</span>` };
+        const choiceText = { n2s: sol, s2n: n => n, s2l: name, l2s: fixedSol };
         $('#cardHint').textContent = hints[dir];
         $('#prompt').innerHTML = promptText[dir];
         $('#cardChoices').innerHTML = G.PENTA.map(n =>
@@ -317,7 +321,7 @@
         const tonic = strings.find(s => s.degree === 1 && s.octave === 0);
         Sound.play(tonic.midi + G.SEMITONES[q.deg]);
         feedback(ok ? 'ok' : 'bad', settings.cardType === 'letter'
-          ? `${sol(q.deg)} = ${G.noteName(settings.key, q.deg)}（簡譜 ${q.deg}）`
+          ? `${fixedSol(q.deg)} = ${G.noteName(settings.key, q.deg)}（固定唱名，C = Do）`
           : `${q.deg} = ${sol(q.deg)}`);
         later(() => this.next(), ok ? 700 : 1600);
       },
@@ -412,15 +416,16 @@
       learnHTML() {
         const k = G.keyInfo(settings.key);
         const name = d => G.noteName(settings.key, d);
-        // 一組五條弦由高到低：5 3 2 1 6（低音）
-        const order = [[5, 0], [3, 0], [2, 0], [1, 0], [6, -1]];
+        // 一組五條弦由低到高：1 2 3 5 6
+        const order = [[1, 0], [2, 0], [3, 0], [5, 0], [6, 0]];
         const cells = f => order.map(([d, o]) => `<td>${f(d, o)}</td>`).join('');
         const low = strings[0], high = strings[20];
         const green = strings.find(s => s.green);
         return `<table class="tune-table"><tr><th>簡譜</th>${cells((d, o) => markHTML(d, o))}</tr>`
-          + `<tr><th>唱名</th>${cells(d => sol(d))}</tr>`
+          + `<tr><th>唱名<small>1=Do</small></th>${cells(d => sol(d))}</tr>`
+          + `<tr><th>唱名<small>C=Do</small></th>${cells(d => fixedSol(d))}</tr>`
           + `<tr><th>音名</th>${cells(d => `<b>${name(d)}</b>`)}</tr></table>`
-          + `<div class="info">${k.name} 1 = ${name(1)}，每 5 弦一組（由高到低如上表）<br>`
+          + `<div class="info">${k.name} 1 = ${name(1)}，每 5 弦一組（由低到高如上表）<br>`
           + `第 21 弦 ${G.letter(low.midi)} 最低 · 第 1 弦 ${G.letter(high.midi)} 最高 · 綠弦 = ${green.degree}（${name(green.degree)}）</div>`;
       },
       tap(s) {
@@ -513,7 +518,7 @@
         const nn = d => G.noteName(settings.key, d);
         const lt = bucket('card', settings.key, 'letter');
         const letterRows = G.PENTA.map(d =>
-          `<li>${sol(d)} ↔ ${nn(d)}：唱名→音名 ${fr(lt['s2l:' + d])}，音名→唱名 ${fr(lt['l2s:' + d])}</li>`).join('');
+          `<li>${fixedSol(d)} ↔ ${nn(d)}：唱名→音名 ${fr(lt['s2l:' + d])}，音名→唱名 ${fr(lt['l2s:' + d])}</li>`).join('');
         const tb = bucket('tune', settings.key, 'tune');
         const sum = prefix => Object.keys(tb).filter(i => i.startsWith(prefix))
           .reduce((a, i) => ({ n: a.n + tb[i].n, ok: a.ok + tb[i].ok }), { n: 0, ok: 0 });

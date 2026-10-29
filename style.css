@@ -309,3 +309,4 @@ main {
 .tune-table td { padding: 2px 0; border-bottom: 1px solid #ffffff12; }
 .tune-table b { color: #8fd0ff; }
 .string .label .nn { font-size: 0.85em; color: #8fd0ff; min-width: 1.8em; text-align: left; }
+.tune-table th small { display: block; font-size: 10px; line-height: 1.1; color: var(--muted); opacity: 0.8; }

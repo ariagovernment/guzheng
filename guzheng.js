@@ -28,6 +28,9 @@ const Guzheng = (() => {
   const NOTE_NAMES = ['C', '#C', 'D', '♭E', 'E', 'F', '#F', 'G', '#G', 'A', '♭B', 'B'];
   // 首調：某調中某個簡譜音的音名，例如 D 調的 3 = #F
   const noteName = (keyId, degree) => NOTE_NAMES[(keyInfo(keyId).pc + SEMITONES[degree]) % 12];
+  // 固定唱名：唱名跟著音名固定（C = Do、D = Re …），不隨調改變；例如 D 調的 1（D）唱 Re
+  const FIXED_SOLFEGE = ['Do', '#Do', 'Re', '♭Mi', 'Mi', 'Fa', '#Fa', 'Sol', '#Sol', 'La', '♭Si', 'Si'];
+  const solfege = (keyId, degree) => FIXED_SOLFEGE[(keyInfo(keyId).pc + SEMITONES[degree]) % 12];
 
   function buildStrings(keyId) {
     const tonic = keyInfo(keyId).pc;
@@ -52,5 +55,5 @@ const Guzheng = (() => {
     return list;
   }
 
-  return { KEYS, PENTA, SEMITONES, SOLFEGE, OCTAVE_NAMES, PRESS, keyInfo, letter, noteName, buildStrings };
+  return { KEYS, PENTA, SEMITONES, SOLFEGE, OCTAVE_NAMES, PRESS, keyInfo, letter, noteName, solfege, buildStrings };
 })();
